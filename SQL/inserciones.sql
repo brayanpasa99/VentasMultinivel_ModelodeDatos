@@ -40,3 +40,16 @@ INSERT INTO "RepresentantePeriodo" (FK_CEDULA_REPRESENTANTE, FK_ID_PERIODO, MONT
 
 INSERT INTO "RepresentantePeriodo" (FK_CEDULA_REPRESENTANTE, FK_ID_PERIODO, MONTO, GRADO, PORCENTAJE)
                         VALUES (1193220649, 2, 3000000, 'master', 8);
+
+-- Insertar Categorias
+INSERT INTO "Categoria" (NOMBRE) VALUES ('Hogar');
+INSERT INTO "Categoria" (NOMBRE) VALUES ('Belleza');
+
+-- Insertar Productos
+INSERT INTO "Producto" (ID_PRODUCTO, FK_ID_CATEGORIA, NOMBRE) VALUES (1, 1, 'Detergente');
+INSERT INTO "Producto" (ID_PRODUCTO, FK_ID_CATEGORIA, NOMBRE) VALUES (2, 2, 'Labial');
+
+-- Insertar Inventario
+INSERT INTO "Inventario" VALUES (1, 1, 4500);
+INSERT INTO "Inventario" VALUES (2, 1, 5000);
+INSERT INTO "Inventario" VALUES (2, 2, 3500);
