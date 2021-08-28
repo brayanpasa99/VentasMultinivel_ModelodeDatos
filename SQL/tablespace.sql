@@ -1,18 +1,28 @@
-CREATE TABLESPACE PROY_DEF DATAFILE 'C:\app\braya\product\18.0.0\oradata\XE\PROY_DEF.DBF'
+CREATE TABLESPACE NATAME DATAFILE 'C:\app\braya\product\18.0.0\oradata\XE\DB1\NATAME.DBF'
 SIZE 4M AUTOEXTEND ON;
 
-CREATE TEMPORARY TABLESPACE PROY_TEMP TEMPFILE 'C:\app\braya\product\18.0.0\oradata\XE\PROY_TEMP.DBF'
+CREATE TABLESPACE USERS_NATAME DATAFILE 'C:\app\braya\product\18.0.0\oradata\XE\DB1\USERS_NATAME.DBF'
 SIZE 4M AUTOEXTEND ON;
 
-alter session set "_ORACLE_SCRIPT"=true;
+CREATE TEMPORARY TABLESPACE NATAME_TMP TEMPFILE 'C:\app\braya\product\18.0.0\oradata\XE\DB1\NATAME_TMP.DBF'
+SIZE 4M AUTOEXTEND ON;
 
-CREATE USER ADMPROY IDENTIFIED BY admproy 
-DEFAULT TABLESPACE PROY_DEF 
-TEMPORARY TABLESPACE PROY_TEMP 
-QUOTA 4M ON PROY_DEF 
-PASSWORD EXPIRE;
+CREATE USER NATAME IDENTIFIED BY NATAME 
+DEFAULT TABLESPACE NATAME
+TEMPORARY TABLESPACE NATAME_TMP 
+QUOTA 4M ON NATAME;
 
-GRANT CONNECT, RESOURCE TO admproy;
+GRANT CONNECT, RESOURCE TO NATAME;
+
+
+CREATE USER ADMINNATAME IDENTIFIED BY ADMINNATAME 
+DEFAULT TABLESPACE NATAME
+TEMPORARY TABLESPACE NATAME_TMP 
+QUOTA 4M ON NATAME;
+
+GRANT SELECT ANY TABLE, CREATE SESSION, CREATE PROFILE, CREATE ROLE, CREATE USER,
+ALTER PROFILE, ALTER ANY ROLE, ALTER USER, DROP PROFILE, DROP ANY ROLE, DROP USER, 
+GRANT ANY ROLE TO ADMINNATAME;
 
 GRANT all privileges TO admproy; -- desde system
 
@@ -33,8 +43,8 @@ REVOKE all ON "Region" FROM consultor, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Representante" FROM consultor, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Periodo" FROM consultor, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "PedidoProducto" FROM consultor, gestor_c1, gestor_c2, supervisor;
-REVOKE all ON "Pedido"FROM consultor, gestor_c1, gestor_c2, supervisor;
-REVOKE all ON "Inventario"FROM consultor, gestor_c1, gestor_c2, supervisor;
+REVOKE all ON "Pedido" FROM consultor, gestor_c1, gestor_c2, supervisor;
+REVOKE all ON "Inventario" FROM consultor, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Categoria" FROM consultor, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Cliente" FROM consultor, gestor_c1, gestor_c2, supervisor;
 
