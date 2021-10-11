@@ -22,6 +22,11 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS --Función que totaliza y calcula el IVA 
     -- Procedimiento que clasifica periodicamente a los representantes y genera un reporte
     FUNCTION LISTAR_REPRESENTANTES RETURN SYS_REFCURSOR;
     FUNCTION LISTAR_REPRESENTANTES(id_region IN "Region".id_region%TYPE) RETURN SYS_REFCURSOR;
+    FUNCTION LISTAR_REPRESENTANTES_ORDENADOS RETURN SYS_REFCURSOR;
+    FUNCTION LISTAR_REPRESENTANTES_ORDENADOS(id_region IN "Region".id_region%TYPE) RETURN SYS_REFCURSOR;
+    FUNCTION LISTAR_REPRESENTANTES_A_CARGO(id_representante IN "Representante".cedula%TYPE) RETURN SYS_REFCURSOR;
+    FUNCTION LISTAR_REPRESENTANTES_A_CARGO(id_representante IN "Representante".cedula%TYPE,
+                                            id_region IN "Region".id_region%TYPE) RETURN SYS_REFCURSOR;
 
     FUNCTION LISTAR_GRADOS RETURN SYS_REFCURSOR;
 
@@ -36,6 +41,9 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS --Función que totaliza y calcula el IVA 
 
     PROCEDURE PR_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
                                 id_region IN "Region".id_region%TYPE);
+
+    PROCEDURE PR_REPORTE_REPRESENTANTE;
+    PROCEDURE PR_REPORTE_REPRESENTANTE(id_region IN "Region".id_region%TYPE);
 
 END PK_NATAME;
 /

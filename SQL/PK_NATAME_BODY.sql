@@ -342,6 +342,105 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         RETURN lc_listar_representantes;
 
     END LISTAR_REPRESENTANTES;
+    
+    FUNCTION LISTAR_REPRESENTANTES_ORDENADOS
+    RETURN SYS_REFCURSOR
+    IS
+            
+            id_periodo NUMBER(8);
+            fecha_inicio DATE;
+            fecha_fin DATE;
+            
+            TYPE C_LISTAR_REPRESENTANTES IS REF CURSOR;
+            lc_listar_representantes C_LISTAR_REPRESENTANTES;
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+        
+        OPEN lc_listar_representantes FOR SELECT r.cedula, (r.primer_nombre || r.segundo_nombre 
+        || r.primer_apellido || r.segundo_apellido) as nombre, rp.valor_recaudado, rp.prom_calificacion,
+        g.nombre_grado, rp.grado 
+        FROM "Representante" r, "RepresentantePeriodo" rp, "Grado" g WHERE rp.fk_cedula_representante = r.cedula
+        AND rp.fk_id_periodo = id_periodo
+        AND g.id_grado = r.fk_id_grado
+        ORDER BY rp.valor_recaudado, rp.prom_calificacion DESC;
+        RETURN lc_listar_representantes;
+
+    END LISTAR_REPRESENTANTES_ORDENADOS;
+    
+    FUNCTION LISTAR_REPRESENTANTES_ORDENADOS(id_region IN "Region".id_region%TYPE)
+    RETURN SYS_REFCURSOR
+    IS
+            
+            id_periodo NUMBER(8);
+            fecha_inicio DATE;
+            fecha_fin DATE;
+            
+            TYPE C_LISTAR_REPRESENTANTES IS REF CURSOR;
+            lc_listar_representantes C_LISTAR_REPRESENTANTES;
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+        
+        OPEN lc_listar_representantes FOR SELECT r.cedula, (r.primer_nombre || r.segundo_nombre 
+        || r.primer_apellido || r.segundo_apellido) as nombre, rp.valor_recaudado, rp.prom_calificacion,
+        g.nombre_grado, rp.grado 
+        FROM "Representante" r, "RepresentantePeriodo" rp, "Grado" g WHERE rp.fk_cedula_representante = r.cedula
+        AND rp.fk_id_periodo = id_periodo
+        AND g.id_grado = r.fk_id_grado
+        AND r.fk_id_region = id_region
+        ORDER BY rp.valor_recaudado, rp.prom_calificacion DESC;
+
+    END LISTAR_REPRESENTANTES_ORDENADOS;
+    
+    FUNCTION LISTAR_REPRESENTANTES_A_CARGO(id_representante IN "Representante".cedula%TYPE)
+    RETURN SYS_REFCURSOR
+    IS
+            
+        id_periodo NUMBER(8);
+        fecha_inicio DATE;
+        fecha_fin DATE;
+        
+        TYPE C_LISTAR_REPRESENTANTES_A_CARGO IS REF CURSOR;
+        lc_listar_representantes C_LISTAR_REPRESENTANTES_A_CARGO;
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+
+        OPEN lc_listar_representantes FOR SELECT r.cedula, rp.valor_recaudado
+        FROM "Representante" r, "RepresentantePeriodo" rp WHERE r.fk_id_rep_padre = id_representante
+        AND rp.fk_cedula_representante = r.cedula
+        AND rp.fk_id_periodo = id_periodo;
+        RETURN lc_listar_representantes;
+
+    END LISTAR_REPRESENTANTES_A_CARGO;
+    
+    FUNCTION LISTAR_REPRESENTANTES_A_CARGO(id_representante IN "Representante".cedula%TYPE,
+                                            id_region IN "Region".id_region%TYPE)
+    RETURN SYS_REFCURSOR
+    IS
+            
+        id_periodo NUMBER(8);
+        fecha_inicio DATE;
+        fecha_fin DATE;
+
+        TYPE C_LISTAR_REPRESENTANTES_A_CARGO IS REF CURSOR;
+        lc_listar_representantes C_LISTAR_REPRESENTANTES_A_CARGO;
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+
+        OPEN lc_listar_representantes FOR SELECT r.cedula, rp.valor_recaudado
+        FROM "Representante" r, "RepresentantePeriodo" rp WHERE r.fk_id_rep_padre = id_representante
+        AND rp.fk_cedula_representante = r.cedula
+        AND rp.fk_id_periodo = id_periodo AND r.fk_id_region = id_region;
+        RETURN lc_listar_representantes;
+
+    END LISTAR_REPRESENTANTES_A_CARGO;
 
     FUNCTION LISTAR_GRADOS
     RETURN SYS_REFCURSOR
@@ -467,6 +566,156 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         DBMS_OUTPUT.PUT_LINE('Medio de pago: ' || medio_pago);
 
     END PR_GENERAR_FACTURA;
+
+    PROCEDURE PR_REPORTE_REPRESENTANTE
+    IS
+
+        lc_listar_representantes SYS_REFCURSOR;
+        lc_listar_representantes_a_cargo SYS_REFCURSOR;
+
+        id_periodo NUMBER(8);
+        fecha_inicio DATE;
+        fecha_fin DATE;
+        
+        nombre_representante VARCHAR(80);
+        cedula_representante NUMBER(10);
+        total_venta_periodo NUMBER(11);
+        calificacion_periodo NUMBER(2,1);
+
+        cedula_representante_h NUMBER(10);
+        total_venta_periodo_h NUMBER(11);
+        calificacion_periodo_h NUMBER(2,1);
+
+        TYPE representante_record IS RECORD(
+            cedula NUMBER,
+            nombre VARCHAR(80),
+            total_venta NUMBER,
+            prom_calificacion NUMBER,
+            grado_antiguo VARCHAR(10),
+            grado_actual VARCHAR(10)
+        );
+
+        TYPE representante_h_record IS RECORD(
+            cedula NUMBER,
+            total_venta NUMBER
+        );
+
+        representante representante_record;
+        representante_h representante_h_record;
+
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+
+        lc_listar_representantes := LISTAR_REPRESENTANTES_ORDENADOS;
+        
+        DBMS_OUTPUT.PUT_LINE('NATAME');
+        DBMS_OUTPUT.PUT_LINE('REPORTE PERIODICO DE REPRESENTANTES DE VENTAS');
+        
+        LOOP
+
+            FETCH lc_listar_representantes INTO representante;
+            EXIT WHEN lc_listar_representantes%NOTFOUND;
+
+            DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante.cedula);
+            DBMS_OUTPUT.PUT_LINE('Nombre del representante: ' || representante.nombre);
+            DBMS_OUTPUT.PUT_LINE('Valor Recaudado en el periodo: ' || representante.total_venta);
+            DBMS_OUTPUT.PUT_LINE('Promedio de calificaciones en el periodo: ' || representante.prom_calificacion);
+            DBMS_OUTPUT.PUT_LINE('Grado anterior del representante: ' || representante.grado_antiguo);
+            DBMS_OUTPUT.PUT_LINE('Grado actual del representante: ' || representante.grado_actual);
+            DBMS_OUTPUT.PUT_LINE('Representantes a su cargo: ');
+
+            lc_listar_representantes_a_cargo := LISTAR_REPRESENTANTES_A_CARGO(representante.cedula);
+
+            LOOP
+
+                FETCH lc_listar_representantes_a_cargo INTO representante_h;
+                EXIT WHEN lc_listar_representantes_a_cargo%NOTFOUND;
+
+                DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante_h.cedula || '. Valor Recaudado en el periodo: ' || representante_h.total_venta);
+
+            END LOOP;
+
+
+        END LOOP;
+    
+    END PR_REPORTE_REPRESENTANTE;
+
+    PROCEDURE PR_REPORTE_REPRESENTANTE(id_region IN "Region".id_region%TYPE)
+    IS
+
+        lc_listar_representantes SYS_REFCURSOR;
+        lc_listar_representantes_a_cargo SYS_REFCURSOR;
+
+        id_periodo NUMBER(8);
+        fecha_inicio DATE;
+        fecha_fin DATE;
+        
+        nombre_representante VARCHAR(80);
+        cedula_representante NUMBER(10);
+        total_venta_periodo NUMBER(11);
+        calificacion_periodo NUMBER(2,1);
+
+        cedula_representante_h NUMBER(10);
+        total_venta_periodo_h NUMBER(11);
+        calificacion_periodo_h NUMBER(2,1);
+
+        TYPE representante_record IS RECORD(
+            cedula NUMBER,
+            nombre VARCHAR(80),
+            total_venta NUMBER,
+            prom_calificacion NUMBER,
+            grado_antiguo VARCHAR(10),
+            grado_actual VARCHAR(10)
+        );
+
+        TYPE representante_h_record IS RECORD(
+            cedula NUMBER,
+            total_venta NUMBER
+        );
+
+        representante representante_record;
+        representante_h representante_h_record;
+
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+
+        lc_listar_representantes := LISTAR_REPRESENTANTES_ORDENADOS(id_region);
+        
+        DBMS_OUTPUT.PUT_LINE('NATAME');
+        DBMS_OUTPUT.PUT_LINE('REPORTE PERIODICO DE REPRESENTANTES DE VENTAS');
+        
+        LOOP
+
+            FETCH lc_listar_representantes INTO representante;
+            EXIT WHEN lc_listar_representantes%NOTFOUND;
+
+            DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante.cedula);
+            DBMS_OUTPUT.PUT_LINE('Nombre del representante: ' || representante.nombre);
+            DBMS_OUTPUT.PUT_LINE('Valor Recaudado en el periodo: ' || representante.total_venta);
+            DBMS_OUTPUT.PUT_LINE('Promedio de calificaciones en el periodo: ' || representante.prom_calificacion);
+            DBMS_OUTPUT.PUT_LINE('Grado anterior del representante: ' || representante.grado_antiguo);
+            DBMS_OUTPUT.PUT_LINE('Grado actual del representante: ' || representante.grado_actual);
+            DBMS_OUTPUT.PUT_LINE('Representantes a su cargo: ');
+
+            lc_listar_representantes_a_cargo := LISTAR_REPRESENTANTES_A_CARGO(representante.cedula, id_region);
+
+            LOOP
+
+                FETCH lc_listar_representantes_a_cargo INTO representante_h;
+                EXIT WHEN lc_listar_representantes_a_cargo%NOTFOUND;
+
+                DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante_h.cedula || '. Valor Recaudado en el periodo: ' || representante_h.total_venta);
+
+            END LOOP;
+
+
+        END LOOP;
+
+    END PR_REPORTE_REPRESENTANTE;
 
 END PK_NATAME;
 /
