@@ -144,6 +144,15 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
+
+            UPDATE "Representante" SET prom_calificacion = (SELECT AVG(cl.nota)
+                FROM "Pedido" p, "RepresentanteCliente" rc, "Calificacion" cl, "Cliente" c
+                WHERE rc.fk_id_representante = representante.cedula
+                AND c.cedula = rc.fk_id_cliente
+                AND p.fk_cedula_cliente = c.cedula
+                AND cl.fk_id_pedido = p.id_pedido
+                GROUP BY rc.fk_id_representante)
+                WHERE cedula = representante.cedula;
         END LOOP;
     END CALCULO_PROMEDIO_CALIFICACION;
 
@@ -385,6 +394,79 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         END IF;
         
     END PR_INSERTAR_PRODUCTO;
+
+    PROCEDURE PR_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
+                                id_region IN "Region".id_region%TYPE)
+    IS
+
+        nombre_cliente VARCHAR(80);
+        cedula_cliente NUMBER(10);
+        tipo_id_cliente VARCHAR(2);
+        nombre_representante VARCHAR(80);
+        cedula_representante NUMBER(10);
+        tipo_id_representante VARCHAR(2);
+        fecha_pedido DATE;
+        subtotal NUMBER(11);
+        id_pago NUMBER(8);
+        medio_pago VARCHAR(2);
+        fecha_pago DATE;
+
+        CURSOR C_LISTAR_PRODUCTOS_PEDIDO
+        IS
+            SELECT pp.fk_id_producto as id_producto, p.nombre as nombre, 
+            pp.cantidad as cantidad, pp.precio as precio
+            FROM "PedidoProducto" pp, "Producto" p
+            WHERE pp.fk_id_pedido = id_pedido
+            AND p.id_producto = pp.fk_id_producto;
+    --Definición de la variable para almacenar el registro leído
+            lc_producto C_LISTAR_PRODUCTOS_PEDIDO %ROWTYPE;
+
+
+    BEGIN
+
+        DBMS_OUTPUT.PUT_LINE('NATAME');
+        DBMS_OUTPUT.PUT_LINE('Factura No. ' || id_pedido);
+        
+        SELECT p.monto, p.fk_cedula_cliente, c.tipo_identificacion, (c.primer_nombre || c.segundo_nombre || c.primer_apellido || c.segundo_apellido) as nombre,
+        r.cedula, r.tipo_identificacion, (r.primer_nombre || r.segundo_nombre || r.primer_apellido || r.segundo_apellido) as nombre_rep, p.fecha_pedido
+        INTO subtotal, cedula_cliente, tipo_id_cliente, nombre_cliente, cedula_representante, tipo_id_representante, nombre_representante, fecha_pedido
+        FROM "Pedido" p, "Cliente" c, "Representante" r, "RepresentanteCliente" rc
+        WHERE p.id_pedido = id_pedido
+        AND p.fk_cedula_cliente = c.cedula
+        AND c.cedula = rc.fk_id_cliente
+        AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
+            (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
+        AND rc.fk_id_representante = r.cedula;
+
+        SELECT pg.id_pago, pg.medio_pago, pg.fecha_pago
+        INTO id_pago, medio_pago, fecha_pago
+        FROM "Pago" pg
+        WHERE pg.fk_id_pedido = id_pedido;
+
+        DBMS_OUTPUT.PUT_LINE('Fecha Facturacion: ' || SYSDATE);
+        DBMS_OUTPUT.PUT_LINE('Fecha Pedido: ' || fecha_pedido);
+        DBMS_OUTPUT.PUT_LINE('Nombre del Cliente: ' || nombre_cliente);
+        DBMS_OUTPUT.PUT_LINE('Identificacion del Cliente: ' || tipo_id_cliente || '. ' || cedula_cliente);
+        DBMS_OUTPUT.PUT_LINE('Nombre del Representante: ' || nombre_representante);
+        DBMS_OUTPUT.PUT_LINE('Identificacion del Representante: ' || tipo_id_representante || '. ' || cedula_representante);
+        DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------');
+        
+        DBMS_OUTPUT.PUT_LINE('|    ID    |           Nombre Producto          | Cantidad | Precio |');
+        DBMS_OUTPUT.PUT_LINE('|----------|------------------------------------|----------|--------|');
+        FOR lc_producto IN C_LISTAR_PRODUCTOS_PEDIDO LOOP
+            DBMS_OUTPUT.PUT_LINE('|' || lc_producto.id_producto || '|' || lc_producto.nombre || '|' || lc_producto.cantidad || '|' || lc_producto.precio || '|');
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('Subtotal: ' || subtotal);
+        DBMS_OUTPUT.PUT_LINE('IVA: ' || subtotal*0.19);
+        DBMS_OUTPUT.PUT_LINE('Total: ' || TOTALIZAR_CARRITO(id_pedido, id_region));
+        DBMS_OUTPUT.PUT_LINE('---------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('No. pago: ' || id_pago);
+        DBMS_OUTPUT.PUT_LINE('Fecha de pago: ' || fecha_pago);
+        DBMS_OUTPUT.PUT_LINE('Medio de pago: ' || medio_pago);
+
+    END PR_GENERAR_FACTURA;
 
 END PK_NATAME;
 /

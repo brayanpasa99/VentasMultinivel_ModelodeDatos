@@ -1,3 +1,6 @@
+set verify off
+set serveroutput on
+
 CREATE OR REPLACE TRIGGER TG_FINAL_PERIODO 
 BEFORE UPDATE OF estado_periodo ON "Periodo"
 FOR EACH ROW
@@ -82,6 +85,8 @@ AFTER INSERT ON "Pago"
 FOR EACH ROW
 BEGIN
 
+    UPDATE "Pedido" SET estado = 'P' WHERE id_pedido = :new.fk_id_pedido;
+    
     UPDATE "Representante" SET total_venta = total_venta + 
     (SELECT p.monto 
     FROM "Pedido" p
@@ -89,40 +94,46 @@ BEGIN
     WHERE cedula = (SELECT rc.fk_id_representante 
     FROM "Pedido" p, "RepresentanteCliente" rc, "Cliente" c
     WHERE p.id_pedido = :new.fk_id_pedido
+    AND c.cedula = p.fk_cedula_cliente
     AND p.fk_cedula_cliente = rc.fk_id_cliente
     AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
-    (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL)));
+    (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
+    GROUP BY rc.fk_id_representante);
 
 END TG_TOTAL_VENTA_REPRESENTANTE;
 /
 
-CREATE OR REPLACE TRIGGER TG_PROM_CALIFICACION_REPRESENTANTE
+/* CREATE OR REPLACE TRIGGER TG_PROM_CALIFICACION_REPRESENTANTE
 AFTER INSERT ON "Calificacion"
 FOR EACH ROW
 DECLARE
-
     ced_representante NUMBER(10);
 
 BEGIN
 
-    SELECT rc.fk_id_representante 
+    SELECT rc.fk_id_representante
     INTO ced_representante
-    FROM "Pedido" p, "Cliente" c, "RepresentanteCliente" rc
+    FROM "Pedido" p, "RepresentanteCliente" rc, "Cliente" c
     WHERE p.id_pedido = :new.fk_id_pedido
+    AND c.cedula = p.fk_cedula_cliente
     AND p.fk_cedula_cliente = rc.fk_id_cliente
     AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
     (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
     GROUP BY rc.fk_id_representante;
 
+    DBMS_OUTPUT.PUT_LINE(ced_representante);
+    COMMIT;
+
     UPDATE "Representante" SET prom_calificacion = (SELECT AVG(cl.nota)
-    FROM "Pedido" p, "RepresentanteCliente" rc, "Calificacion" cl, "Cliente" c
-    WHERE cl.fk_id_pedido = p.id_pedido
-    AND p.fk_cedula_cliente = rc.fk_id_cliente
-    AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
-    (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
-    AND rc.fk_id_representante = ced_representante
-    GROUP BY rc.fk_id_representante)
-    WHERE cedula = ced_representante;
+        FROM "Pedido" p, "RepresentanteCliente" rc, "Calificacion" cl, "Cliente" c
+        WHERE rc.fk_id_representante = ced_representante
+        AND c.cedula = rc.fk_id_cliente
+        AND p.fk_cedula_cliente = c.cedula
+        AND cl.fk_id_pedido = p.id_pedido
+        GROUP BY rc.fk_id_representante)
+        WHERE cedula = ced_representante;
+
+    --PK_NATAME.PR_ACTUALIZAR_PROM_CALIFICACION_REPRESENTANTE(ced_representante);
 
 END TG_PROM_CALIFICACION_REPRESENTANTE;
-/
+/ */
