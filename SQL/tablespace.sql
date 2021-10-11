@@ -49,7 +49,7 @@ REVOKE all ON "Categoria" FROM cliente, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Cliente" FROM cliente, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Pago" FROM cliente, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Calificacion" FROM cliente, gestor_c1, gestor_c2, supervisor;
-REVOKE all ON "RepresentantePedido" FROM cliente, gestor_c1, gestor_c2, supervisor;
+REVOKE all ON "Producto" FROM cliente, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "RepresentanteCliente" FROM cliente, gestor_c1, gestor_c2, supervisor;
 REVOKE all ON "Grado" FROM cliente, gestor_c1, gestor_c2, supervisor;
 
