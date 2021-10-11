@@ -57,7 +57,7 @@ GRANT select ON "Cliente" TO cliente, gestor_c1, gestor_c2, supervisor;
 GRANT select ON "Representante" TO cliente, gestor_c1, gestor_c2, supervisor;
 GRANT select ON "Periodo" TO gestor_c2, supervisor;
 GRANT select ON "Pedido" TO cliente, gestor_c1, gestor_c2, supervisor;
-GRANT select ON "Producto" TO gestor_c1, gestor_c2, supervisor;
+GRANT select ON "Producto" TO cliente, gestor_c1, gestor_c2, supervisor;
 GRANT select ON "Categoria" TO  gestor_c1, gestor_c2, supervisor;
 GRANT select ON "Region" TO gestor_c2, supervisor;
 GRANT select ON "PedidoProducto" TO cliente, gestor_c1, gestor_c2, supervisor;
