@@ -82,7 +82,8 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 AND rp.fk_cedula_representante = rc.fk_id_representante
                 AND p.fk_cedula_cliente = c.cedula
                 AND c.cedula = rc.fk_id_cliente
-                AND p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin
+                AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
+                (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
                 AND pp.estado_periodo = 'A'
                 AND pp.id_periodo = rp.fk_id_periodo
                 AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
@@ -133,7 +134,8 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 AND rp.fk_cedula_representante = rc.fk_id_representante
                 AND p.fk_cedula_cliente = c.cedula
                 AND c.cedula = rc.fk_id_cliente
-                AND p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin
+                AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
+                (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
                 AND pp.estado_periodo = 'A'
                 AND pp.id_periodo = rp.fk_id_periodo
                 AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
@@ -346,6 +348,43 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         RETURN lc_listar_grados;
 
     END LISTAR_GRADOS;
+
+    PROCEDURE PR_INSERTAR_PRODUCTO(id_region IN "Inventario".fk_id_region%TYPE,
+                                    id_producto IN "Inventario".fk_id_producto%TYPE,
+                                    id_pedido IN "Pedido".id_pedido%TYPE,
+                                    cantidad IN NUMBER
+                                    )
+    IS
+        --Declaracion de variables locales
+        cantidad_disp NUMBER(4);
+        precio_inv NUMBER(6);
+    BEGIN
+
+        SELECT cantidad, precio
+        INTO cantidad_disp, precio_inv
+        FROM "Inventario"
+        WHERE fk_id_region = id_region
+        AND fk_id_producto = id_producto;
+
+        IF cantidad_disp >= cantidad THEN
+
+            INSERT INTO "PedidoProducto" (fk_id_pedido, fk_id_producto, cantidad, precio) VALUES (id_pedido, id_producto, cantidad, precio_inv);
+            cantidad_disp := cantidad_disp - cantidad;
+            UPDATE "Inventario" SET cantidad = cantidad_disp 
+            WHERE fk_id_region = id_region
+            AND fk_id_producto = id_producto;
+
+        ELSE
+
+            INSERT INTO "PedidoProducto" (fk_id_pedido, fk_id_producto, cantidad, precio) VALUES (id_pedido, id_producto, cantidad_disp, precio_inv);
+            cantidad_disp := 0;
+            UPDATE "Inventario" SET cantidad = cantidad_disp 
+            WHERE fk_id_region = id_region
+            AND fk_id_producto = id_producto;
+
+        END IF;
+        
+    END PR_INSERTAR_PRODUCTO;
 
 END PK_NATAME;
 /

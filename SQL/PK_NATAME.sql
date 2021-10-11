@@ -27,5 +27,11 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS --Función que totaliza y calcula el IVA 
 
     PROCEDURE CALCULAR_COMISION_PERIODICA;
     PROCEDURE CALCULAR_COMISION_PERIODICA(id_region IN "Region".id_region%TYPE);
+
+    PROCEDURE PR_INSERTAR_PRODUCTO(id_region IN "Inventario".fk_id_region%TYPE,
+                                    id_producto IN "Inventario".fk_id_producto%TYPE,
+                                    id_pedido IN "Pedido".id_pedido%TYPE,
+                                    cantidad IN NUMBER
+                                    );
 END PK_NATAME;
 /
