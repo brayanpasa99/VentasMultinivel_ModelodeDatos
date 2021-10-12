@@ -354,6 +354,16 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             TYPE C_LISTAR_REPRESENTANTES IS REF CURSOR;
             lc_listar_representantes C_LISTAR_REPRESENTANTES;
 
+            TYPE representante_record IS RECORD(
+                cedula NUMBER
+            );
+
+            representante representante_record;
+
+            lc_listar SYS_REFCURSOR;
+
+            id_grado_rep NUMBER(1);
+
     BEGIN
 
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
@@ -365,6 +375,36 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         AND rp.fk_id_periodo = id_periodo
         AND g.id_grado = r.fk_id_grado
         ORDER BY rp.valor_recaudado, rp.prom_calificacion DESC;
+
+        lc_listar := LISTAR_REPRESENTANTES;
+
+        LOOP
+            FETCH lc_listar INTO representante;
+            EXIT WHEN lc_listar%NOTFOUND;
+
+            SELECT id_grado
+            INTO id_grado_rep
+            FROM "Grado" g, "RepresentantePeriodo" rp, "Representante" r
+            WHERE rp.fk_cedula_representante = r.cedula
+            AND r.cedula = representante.cedula
+            AND rp.fk_id_periodo = id_periodo
+            AND rp.grado = g.nombre_grado;
+
+            UPDATE "Representante" SET fk_id_grado = id_grado_rep
+            WHERE cedula = representante.cedula;
+
+        END LOOP;
+
+        /* UPDATE "Representante", "RepresentantePeriodo" SET fk_id_grado = (SELECT id_grado
+        FROM "Grado" g, "RepresentantePeriodo" rp, "Representante" r
+        WHERE rp.fk_cedula_representante = r.cedula
+        AND rp.fk_id_periodo = id_periodo
+        AND rp.grado = g.nombre_grado)
+        WHERE cedula = fk_cedula_representante
+        AND fk_id_periodo = id_periodo; */
+
+
+
         RETURN lc_listar_representantes;
 
     END LISTAR_REPRESENTANTES_ORDENADOS;
@@ -380,6 +420,16 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             TYPE C_LISTAR_REPRESENTANTES IS REF CURSOR;
             lc_listar_representantes C_LISTAR_REPRESENTANTES;
 
+            TYPE representante_record IS RECORD(
+                cedula NUMBER
+            );
+
+            representante representante_record;
+
+            lc_listar SYS_REFCURSOR;
+
+            id_grado_rep NUMBER(1);
+
     BEGIN
 
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
@@ -392,6 +442,27 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         AND g.id_grado = r.fk_id_grado
         AND r.fk_id_region = id_region
         ORDER BY rp.valor_recaudado, rp.prom_calificacion DESC;
+        lc_listar := LISTAR_REPRESENTANTES(id_region);
+
+        LOOP
+            FETCH lc_listar INTO representante;
+            EXIT WHEN lc_listar%NOTFOUND;
+
+            SELECT id_grado
+            INTO id_grado_rep
+            FROM "Grado" g, "RepresentantePeriodo" rp, "Representante" r
+            WHERE rp.fk_cedula_representante = r.cedula
+            AND r.cedula = representante.cedula
+            AND rp.fk_id_periodo = id_periodo
+            AND rp.grado = g.nombre_grado;
+
+            UPDATE "Representante" SET fk_id_grado = id_grado_rep
+            WHERE cedula = representante.cedula
+            and fk_id_region = id_region;
+
+        END LOOP;
+        
+        RETURN lc_listar_representantes;
 
     END LISTAR_REPRESENTANTES_ORDENADOS;
     
