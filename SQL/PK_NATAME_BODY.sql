@@ -1,3 +1,5 @@
+set verify off
+set serveroutput on
 CREATE or REPLACE PACKAGE BODY PK_NATAME AS
 /*-----------------------------------------------------------------------------------
   Proyecto   : Tienda de productos naturales NaTaMe - Grupo 6 BD II
@@ -38,6 +40,8 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         EXCEPTION 
             WHEN NO_DATA_FOUND THEN
                 RAISE_APPLICATION_ERROR (-20001, 'Pedido y/o region no encontrada');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR (-20002, 'Ocurrio una excepcion inesperada...');
     END TOTALIZAR_CARRITO;
 
     /*------------------------------------------------------------------------------
@@ -105,6 +109,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
         END LOOP;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20003, 'El calculo del promedio de calificaciones no pudo realizarse correctamente...');
     END CALCULO_PROMEDIO_CALIFICACION;
 
     /*------------------------------------------------------------------------------
@@ -164,6 +171,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 GROUP BY rc.fk_id_representante)
                 WHERE cedula = representante.cedula;
         END LOOP;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20003, 'El calculo del promedio de calificaciones no pudo realizarse correctamente...');
     END CALCULO_PROMEDIO_CALIFICACION;
 
     /*------------------------------------------------------------------------------
@@ -222,6 +232,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 END IF;
             END LOOP;
         END LOOP;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20004, 'El cálculo de las comisiones periódicas no pudo realizarse correctamente...');
     END CALCULAR_COMISION_PERIODICA;
     
     /*------------------------------------------------------------------------------
@@ -283,6 +296,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 END IF;
             END LOOP;
         END LOOP;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20004, 'El cálculo de las comisiones periódicas no pudo realizarse correctamente...');        
     END CALCULAR_COMISION_PERIODICA;
 
     /*------------------------------------------------------------------------------
@@ -296,11 +312,25 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                                         fecha_fin   OUT DATE, 
                                         id_periodo  OUT NUMBER)
     IS
+        id_periodo_max NUMBER(8);
     BEGIN
-        SELECT p.id_periodo as id_p, p.fecha_inicio as fecha_i, p.fecha_fin as fecha_f
+
+        SELECT MAX(id_periodo)
+        INTO id_periodo_max
+        FROM "Periodo";
+
+        DBMS_OUTPUT.PUT_LINE(id_periodo_max);
+
+        SELECT p.id_periodo, p.fecha_inicio, p.fecha_fin
         INTO id_periodo, fecha_inicio, fecha_fin
         FROM "Periodo" p
         WHERE p.estado_periodo = 'A';
+        --WHERE p.id_periodo = id_periodo_max;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20005, 'No se encontró el periodo activo... ¿Existe el periodo activo en la tabla?');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20006, 'La búsqueda del periodo activo presentó un error...');       
     END PR_BUSCAR_PERIODO_ACTIVO;
 
     /*------------------------------------------------------------------------------
@@ -318,6 +348,11 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         OPEN lc_listar_representantes FOR SELECT cedula as cedula
         FROM "Representante";
         RETURN lc_listar_representantes;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20007, 'No se encontraron representantes a listar...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20008, 'La búsqueda de representantes tuvo un error...');       
     END LISTAR_REPRESENTANTES;
     
     /*------------------------------------------------------------------------------
@@ -336,6 +371,11 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         OPEN lc_listar_representantes FOR SELECT cedula as cedula
         FROM "Representante" WHERE fk_id_region = id_region;
         RETURN lc_listar_representantes;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20007, 'No se encontraron representantes a listar...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20008, 'La búsqueda de representantes tuvo un error...');              
     END LISTAR_REPRESENTANTES;
     
     /*------------------------------------------------------------------------------
@@ -383,6 +423,11 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             WHERE cedula = representante.cedula;
         END LOOP;
         RETURN lc_listar_representantes;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20009, 'No se encontraron representantes a listar...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-200010, 'La búsqueda de representantes de manera ordenada tuvo un error...');              
     END LISTAR_REPRESENTANTES_ORDENADOS;
     
     /*------------------------------------------------------------------------------
@@ -434,6 +479,11 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             and fk_id_region = id_region;
         END LOOP;
         RETURN lc_listar_representantes;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20009, 'No se encontraron representantes a listar...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20010, 'La búsqueda de representantes de manera ordenada tuvo un error...');              
     END LISTAR_REPRESENTANTES_ORDENADOS;
     
     /*------------------------------------------------------------------------------
@@ -459,6 +509,12 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         AND rp.fk_cedula_representante = r.cedula
         AND rp.fk_id_periodo = id_periodo;
         RETURN lc_listar_representantes;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20011, 'No se encontraron representantes a cargo del representante padre... Revisar la integridad de la BD, 
+                todos los representantes deben tener un representante padre...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20012, 'La búsqueda de representantes a cargo de un representante en partícular tuvo un error...');              
     END LISTAR_REPRESENTANTES_A_CARGO;
     
     /*------------------------------------------------------------------------------
@@ -488,6 +544,12 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         AND rp.fk_cedula_representante = r.cedula
         AND rp.fk_id_periodo = id_periodo AND r.fk_id_region = id_region;
         RETURN lc_listar_representantes;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20011, 'No se encontraron representantes a cargo del representante padre... Revisar la integridad de la BD, 
+                todos los representantes deben tener un representante padre...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20012, 'La búsqueda de representantes a cargo de un representante en partícular tuvo un error...');              
     END LISTAR_REPRESENTANTES_A_CARGO;
 
     /*------------------------------------------------------------------------------
@@ -507,6 +569,11 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         OPEN lc_listar_grados FOR SELECT id_grado, nombre_grado, porcentaje_comision, calificacion_minima, venta_minima
         FROM "Grado";
         RETURN lc_listar_grados;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20013, 'No se encontraron grados en la BD...');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20014, 'La búsqueda de grados en la BD tuvo un error...');           
     END LISTAR_GRADOS;
 
     /*------------------------------------------------------------------------------
@@ -546,7 +613,12 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             UPDATE "Inventario" SET cantidad = cantidad_disp 
             WHERE fk_id_region = id_region
             AND fk_id_producto = id_producto;
-        END IF;        
+        END IF;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20015, 'No se encontró el producto en cuestión... ¿Está bien escrito el id_ del producto y el de la región?');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20016, 'La insersión de nuevos productos al pedido tuvo un error...');                
     END PR_INSERTAR_PRODUCTO;
 
     /*------------------------------------------------------------------------------
@@ -618,6 +690,11 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         salida := salida + 'Fecha de pago: ' || fecha_pago || '\n';
         salida := salida + 'Medio de pago: ' || medio_pago || '\n';
         RETURN salida;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                RAISE_APPLICATION_ERROR(-20017, 'No se encontró el pedido o los productos asociados al pedido... ¿Están bien el id. del pedido?');
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20018, 'La generación de la factura del pedido en cuestión tuvo un error...');               
     END PR_GENERAR_FACTURA;
 
     /*------------------------------------------------------------------------------
@@ -684,6 +761,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             END LOOP;
         END LOOP;
         return salida;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20019, 'La generación del representante en cuestión presentó errores...');                 
     END PR_REPORTE_REPRESENTANTE;
 
     /*------------------------------------------------------------------------------
@@ -753,6 +833,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             END LOOP;
         END LOOP;
         RETURN salida;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20019, 'La generación del representante en cuestión presentó errores');             
     END PR_REPORTE_REPRESENTANTE;
 
     /*------------------------------------------------------------------------------
@@ -770,6 +853,9 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
 
         INSERT INTO "RepresentanteCliente" (FK_ID_REPRESENTANTE, FK_ID_CLIENTE, FECHA_INICIO, FECHA_FIN)
         VALUES (id_representante, id_cliente, TO_CHAR((SYSDATE+1), 'DD-MM-YYYY'), NULL);
-    END PR_CAMBIAR_REPRESENTANTE;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20020, 'El cambio de representante del cliente en cuestión presentó un fallo...');       
+    END PR_CAMBIAR_REPRESENTANTE;  
 END PK_NATAME;
 /
