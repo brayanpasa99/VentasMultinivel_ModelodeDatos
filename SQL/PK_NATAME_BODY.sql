@@ -45,6 +45,62 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
     END TOTALIZAR_CARRITO;
 
     /*------------------------------------------------------------------------------
+     (2.1) Procedimiento para pagar en línea el carrito luego de la comunicación con la API del banco empleando T.de C.
+     Parametros de Entrada: id_pedido           Identificación del pedido a liquidar
+                            franquicia          Franquicia de la tarjeta de credito utilziada
+                            num_tarjeta         Número de tarjeta empelada
+                            cvv                 Codigo de seguridad CVV de la tarjeta empleada
+                            fecha_vencimiento   Fecha de vencimiento de la tarjeta empleada
+     Parametros de Salida:  Ninguno.           
+   */ 
+    PROCEDURE PR_PAGAR_CARRITO(id_pedido            IN "Pedido".id_pedido%TYPE,
+                                franquicia          IN VARCHAR,
+                                num_tarjeta         IN NUMBER,
+                                cvv                 IN NUMBER,
+                                fecha_vencimiento   IN DATE)
+    IS
+    BEGIN
+
+        INSERT INTO "Pago" (FK_ID_PEDIDO, FECHA_PAGO, FRANQUICIA, MEDIO_PAGO, NUM_TARJETA, CVV, FECHA_VENCIMIENTO)
+        VALUES (id_pedido, TO_CHAR(SYSDATE, 'DD-MM-YYYY'), franquicia, 'T', num_tarjeta, cvv, fecha_vencimiento);
+
+    END PR_PAGAR_CARRITO;
+
+    /*------------------------------------------------------------------------------
+     (2.2) Procedimiento para pagar en línea el carrito luego de la comunicación con la API del banco empleando Transferencia
+     Parametros de Entrada: id_pedido           Identificación del pedido a liquidar
+                            id_transferencia    Número bancario de la transferencia realizada
+     Parametros de Salida:  Ninguno.           
+   */ 
+    PROCEDURE PR_PAGAR_CARRITO(id_pedido            IN "Pedido".id_pedido%TYPE,
+                                id_transferencia    IN NUMBER)
+    IS
+    BEGIN
+
+        INSERT INTO "Pago" (FK_ID_PEDIDO, FECHA_PAGO, MEDIO_PAGO, ID_TRANSFERENCIA)
+        VALUES (id_pedido, TO_CHAR(SYSDATE, 'DD-MM-YYYY'), 'TR', id_transferencia);
+
+    END PR_PAGAR_CARRITO;
+
+    /*------------------------------------------------------------------------------
+     (2.3) Procedimiento para pagar en línea el carrito luego de la comunicación con la API del banco empleando PSE
+     Parametros de Entrada: id_pedido           Identificación del pedido a liquidar
+                            id_pse              Número bancario de a transacción en PSE realizada
+                            correo_pse          Correo registrado en la plataforma PSE con el cual se realizó el pago.
+     Parametros de Salida:  Ninguno.           
+   */ 
+    PROCEDURE PR_PAGAR_CARRITO(id_pedido   IN "Pedido".id_pedido%TYPE,
+                                id_pse     IN NUMBER,
+                                correo_pse IN VARCHAR)
+    IS
+    BEGIN
+
+        INSERT INTO "Pago" (FK_ID_PEDIDO, FECHA_PAGO, MEDIO_PAGO, ID_PSE, CORREO_PSE)
+        VALUES (id_pedido, TO_CHAR(SYSDATE, 'DD-MM-YYYY'), 'P', id_pse, correo_pse);
+
+    END PR_PAGAR_CARRITO;    
+
+    /*------------------------------------------------------------------------------
      (4) Procedimiento que Implementa la funcionalidad que permite al cliente calificar a su representante de ventas
      Parametros de Entrada: id_pedido       Identificación del pedido a liquidar
                             nota            Calificacion de 0 a 5 del cliente al representante
@@ -216,7 +272,6 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
     BEGIN
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
         lc_listar_representantes := LISTAR_REPRESENTANTES;
-        lc_listar_grados := LISTAR_GRADOS;
 
         LOOP
             FETCH lc_listar_representantes INTO representante;
@@ -228,16 +283,23 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
 
+            DBMS_OUTPUT.PUT_LINE('Ventas: ' || ventas_rep);
+            DBMS_OUTPUT.PUT_LINE('Calificacion: ' || calificacion_rep);
+            lc_listar_grados := LISTAR_GRADOS;
+
             LOOP
                 FETCH lc_listar_grados INTO grados;
                 EXIT WHEN lc_listar_grados%NOTFOUND;
+                DBMS_OUTPUT.PUT_LINE('Venta Grado:' || grados.venta);
+                DBMS_OUTPUT.PUT_LINE('Calificacion Grado:' || grados.calificacion);
+
                 IF ventas_rep >= grados.venta THEN
                     IF calificacion_rep >= grados.calificacion THEN
                         UPDATE "RepresentantePeriodo" SET grado = grados.nombre, porcentaje = grados.porcentaje 
                         WHERE fk_cedula_representante = representante.cedula
                         AND fk_id_periodo = id_periodo;
 
-                        UPDATE "RepresentantePeriodo" SET comision = ventas_rep * grados.porcentaje
+                        UPDATE "RepresentantePeriodo" SET comision = ventas_rep * (grados.porcentaje/100)
                         WHERE fk_cedula_representante = representante.cedula
                         AND fk_id_periodo = id_periodo;
                     END IF;
@@ -295,13 +357,14 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             LOOP
                 FETCH lc_listar_grados INTO grados;
                 EXIT WHEN lc_listar_grados%NOTFOUND;
+
                 IF ventas_rep >= grados.venta THEN
                     IF calificacion_rep >= grados.calificacion THEN
                         UPDATE "RepresentantePeriodo" SET grado = grados.nombre, porcentaje = grados.porcentaje 
                         WHERE fk_cedula_representante = representante.cedula
                         AND fk_id_periodo = id_periodo;
 
-                        UPDATE "RepresentantePeriodo" SET comision = ventas_rep * grados.porcentaje
+                        UPDATE "RepresentantePeriodo" SET comision = ventas_rep * (grados.porcentaje/100)
                         WHERE fk_cedula_representante = representante.cedula
                         AND fk_id_periodo = id_periodo;
                     END IF;
@@ -633,7 +696,7 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                             id_region       Identificacion de la región para el llamado de la func. TOTALIZAR_CARRITO
      Retorna:               Cadena de texto de tipo VARCHAR que contiene la factura para ser ilustrada en la App.
    */ 
-    FUNCTION PR_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
+    FUNCTION FU_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
                                 id_region IN "Region".id_region%TYPE) RETURN VARCHAR
     IS
         -- Declaración de variables locales
@@ -659,7 +722,7 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             lc_producto C_LISTAR_PRODUCTOS_PEDIDO %ROWTYPE;
     BEGIN
         salida := 'NATAME\n';
-        salida := salida + 'Factura No. ' || id_pedido || '\n';
+        salida := CONCAT(salida, CONCAT('Factura No. ', CONCAT(TO_CHAR(id_pedido), '\n')));
         SELECT p.monto, p.fk_cedula_cliente, c.tipo_identificacion, (c.primer_nombre || c.segundo_nombre || c.primer_apellido || c.segundo_apellido) as nombre,
         r.cedula, r.tipo_identificacion, (r.primer_nombre || r.segundo_nombre || r.primer_apellido || r.segundo_apellido) as nombre_rep, p.fecha_pedido
         INTO subtotal, cedula_cliente, tipo_id_cliente, nombre_cliente, cedula_representante, tipo_id_representante, nombre_representante, fecha_pedido
@@ -675,33 +738,34 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         INTO id_pago, medio_pago, fecha_pago
         FROM "Pago" pg
         WHERE pg.fk_id_pedido = id_pedido;
-        salida := salida + 'Fecha Facturacion: ' || SYSDATE || '\n';
-        salida := salida + 'Fecha Pedido: ' || fecha_pedido || '\n';
-        salida := salida + 'Nombre del Cliente: ' || nombre_cliente || '\n';
-        salida := salida + 'Identificacion del Cliente: ' || tipo_id_cliente || '. ' || cedula_cliente || '\n';
-        salida := salida + 'Nombre del Representante: ' || nombre_representante || '\n';
-        salida := salida + 'Identificacion del Representante: ' || tipo_id_representante || '. ' || cedula_representante || '\n';
-        salida := salida + '---------------------------------------------------------------------' || '\n';
-        salida := salida + '|    ID    |           Nombre Producto          | Cantidad | Precio |' || '\n';
-        salida := salida + '|----------|------------------------------------|----------|--------|' || '\n';
+        salida := CONCAT(salida, CONCAT('Fecha Facturacion: ', CONCAT(TO_CHAR(SYSDATE), '\n')));
+        salida := CONCAT(salida, CONCAT('Fecha Pedido: ', CONCAT(TO_CHAR(fecha_pedido), '\n')));
+        salida := CONCAT(salida, CONCAT('Nombre del Cliente: ', CONCAT(TO_CHAR(nombre_cliente), '\n')));
+        salida := CONCAT(salida, CONCAT('Identificacion del Cliente: ', CONCAT(TO_CHAR(tipo_id_cliente), CONCAT('. ', CONCAT(TO_CHAR(cedula_cliente), '\n')))));
+        salida := CONCAT(salida, CONCAT('Nombre del Representante: ', CONCAT(TO_CHAR(nombre_representante), '\n')));
+        salida := CONCAT(salida, CONCAT('Identificacion del Representante: ', CONCAT(TO_CHAR(tipo_id_representante), CONCAT('. ', CONCAT(TO_CHAR(cedula_representante), '\n')))));
+        salida := CONCAT(salida, CONCAT('---------------------------------------------------------------------', '\n'));
+        salida := CONCAT(salida, CONCAT('|    ID    |           Nombre Producto          | Cantidad | Precio |', '\n'));
+        salida := CONCAT(salida, CONCAT('|----------|------------------------------------|----------|--------|', '\n'));
         FOR lc_producto IN C_LISTAR_PRODUCTOS_PEDIDO LOOP
-            salida := salida + '|' || lc_producto.id_producto || '|' || lc_producto.nombre || '|' || lc_producto.cantidad || '|' || lc_producto.precio || '|' || '\n';
+            salida := CONCAT(salida, CONCAT('|', CONCAT(TO_CHAR(lc_producto.id_producto), CONCAT('|', CONCAT(TO_CHAR(lc_producto.nombre), CONCAT('|', 
+            CONCAT(TO_CHAR(lc_producto.cantidad), CONCAT('|', CONCAT(TO_CHAR(lc_producto.precio), CONCAT('|', '\n'))))))))));
         END LOOP;
-        salida := salida + '---------------------------------------------------------------------' || '\n';
-        salida := salida + 'Subtotal: ' || subtotal || '\n';
-        salida := salida + 'IVA: ' || subtotal*0.19 || '\n';
-        salida := salida + 'Total: ' || TOTALIZAR_CARRITO(id_pedido, id_region) || '\n';
-        salida := salida + '---------------------------------------------------------------------' || '\n';
-        salida := salida + 'No. pago: ' || id_pago || '\n';
-        salida := salida + 'Fecha de pago: ' || fecha_pago || '\n';
-        salida := salida + 'Medio de pago: ' || medio_pago || '\n';
+        salida := CONCAT(salida, CONCAT('---------------------------------------------------------------------', '\n'));
+        salida := CONCAT(salida, CONCAT('Subtotal: ', CONCAT(TO_CHAR(subtotal), '\n')));
+        salida := CONCAT(salida, CONCAT('IVA: ', CONCAT(TO_CHAR(subtotal*0.19), '\n')));
+        salida := CONCAT(salida, CONCAT('Total: ', CONCAT(TO_CHAR(TOTALIZAR_CARRITO(id_pedido, id_region)), '\n')));
+        salida := CONCAT(salida, CONCAT('---------------------------------------------------------------------', '\n'));
+        salida := CONCAT(salida, CONCAT('No. pago: ', CONCAT(TO_CHAR(id_pago), '\n')));
+        salida := CONCAT(salida, CONCAT('Fecha de pago: ', CONCAT(TO_CHAR(fecha_pago), '\n')));
+        salida := CONCAT(salida, CONCAT('Medio de pago: ', CONCAT(TO_CHAR(medio_pago), '\n')));
         RETURN salida;
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
                 RAISE_APPLICATION_ERROR(-20017, 'No se encontró el pedido o los productos asociados al pedido... ¿Están bien el id. del pedido?');
-            WHEN OTHERS THEN
-                RAISE_APPLICATION_ERROR(-20018, 'La generación de la factura del pedido en cuestión tuvo un error...');               
-    END PR_GENERAR_FACTURA;
+            /* WHEN OTHERS THEN
+                RAISE_APPLICATION_ERROR(-20018, 'La generación de la factura del pedido en cuestión tuvo un error...');  */              
+    END FU_GENERAR_FACTURA;
 
     /*------------------------------------------------------------------------------
      (6.1) Función para calificar periódicamente a los representantes de ventas y generar un resumen con los datos
@@ -747,23 +811,23 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
     BEGIN
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
         lc_listar_representantes := LISTAR_REPRESENTANTES_ORDENADOS;
-        salida := 'NATAME' || '\n';
-        salida := salida + 'REPORTE PERIODICO DE REPRESENTANTES DE VENTAS' || '\n';
+        DBMS_OUTPUT.PUT_LINE('NATAME' || '\n');
+        DBMS_OUTPUT.PUT_LINE('REPORTE PERIODICO DE REPRESENTANTES DE VENTAS' || '\n');
         LOOP
             FETCH lc_listar_representantes INTO representante;
             EXIT WHEN lc_listar_representantes%NOTFOUND;
-            salida := salida + 'Cedula: ' || representante.cedula || '\n';
-            salida := salida + 'Nombre del representante: ' || representante.nombre || '\n';
-            salida := salida + 'Valor Recaudado en el periodo: ' || representante.total_venta || '\n';
-            salida := salida + 'Promedio de calificaciones en el periodo: ' || representante.prom_calificacion || '\n';
-            salida := salida + 'Grado anterior del representante: ' || representante.grado_antiguo || '\n';
-            salida := salida + 'Grado actual del representante: ' || representante.grado_actual || '\n';
-            salida := salida + 'Representantes a su cargo: ' || '\n';
+            DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante.cedula || '\n');
+            DBMS_OUTPUT.PUT_LINE('Nombre del representante: ' || representante.nombre || '\n');
+            DBMS_OUTPUT.PUT_LINE('Valor Recaudado en el periodo: ' || representante.total_venta || '\n');
+            DBMS_OUTPUT.PUT_LINE('Promedio de calificaciones en el periodo: ' || representante.prom_calificacion || '\n');
+            DBMS_OUTPUT.PUT_LINE('Grado anterior del representante: ' || representante.grado_antiguo || '\n');
+            DBMS_OUTPUT.PUT_LINE('Grado actual del representante: ' || representante.grado_actual || '\n');
+            DBMS_OUTPUT.PUT_LINE('Representantes a su cargo: ' || '\n');
             lc_listar_representantes_a_cargo := LISTAR_REPRESENTANTES_A_CARGO(representante.cedula);
             LOOP
                 FETCH lc_listar_representantes_a_cargo INTO representante_h;
                 EXIT WHEN lc_listar_representantes_a_cargo%NOTFOUND;
-                salida := salida + 'Cedula: ' || representante_h.cedula || '. Valor Recaudado en el periodo: ' || representante_h.total_venta || '\n';
+                DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante_h.cedula || '. Valor Recaudado en el periodo: ' || representante_h.total_venta || '\n');
             END LOOP;
         END LOOP;
         return salida;
@@ -819,23 +883,23 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
     BEGIN
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
         lc_listar_representantes := LISTAR_REPRESENTANTES_ORDENADOS(id_region);
-        salida := 'NATAME' || '\n';
-        salida := salida + 'REPORTE PERIODICO DE REPRESENTANTES DE VENTAS' || '\n';
+        DBMS_OUTPUT.PUT_LINE('NATAME' || '\n');
+        DBMS_OUTPUT.PUT_LINE('REPORTE PERIODICO DE REPRESENTANTES DE VENTAS' || '\n');
         LOOP
             FETCH lc_listar_representantes INTO representante;
             EXIT WHEN lc_listar_representantes%NOTFOUND;
-            salida := salida + 'Cedula: ' || representante.cedula || '\n';
-            salida := salida + 'Nombre del representante: ' || representante.nombre || '\n';
-            salida := salida + 'Valor Recaudado en el periodo: ' || representante.total_venta || '\n';
-            salida := salida + 'Promedio de calificaciones en el periodo: ' || representante.prom_calificacion || '\n';
-            salida := salida + 'Grado anterior del representante: ' || representante.grado_antiguo || '\n';
-            salida := salida + 'Grado actual del representante: ' || representante.grado_actual || '\n';
-            salida := salida + 'Representantes a su cargo: ' || '\n';
+            DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante.cedula || '\n');
+            DBMS_OUTPUT.PUT_LINE('Nombre del representante: ' || representante.nombre || '\n');
+            DBMS_OUTPUT.PUT_LINE('Valor Recaudado en el periodo: ' || representante.total_venta || '\n');
+            DBMS_OUTPUT.PUT_LINE('Promedio de calificaciones en el periodo: ' || representante.prom_calificacion || '\n');
+            DBMS_OUTPUT.PUT_LINE('Grado anterior del representante: ' || representante.grado_antiguo || '\n');
+            DBMS_OUTPUT.PUT_LINE('Grado actual del representante: ' || representante.grado_actual || '\n');
+            DBMS_OUTPUT.PUT_LINE('Representantes a su cargo: ' || '\n');
             lc_listar_representantes_a_cargo := LISTAR_REPRESENTANTES_A_CARGO(representante.cedula, id_region);
             LOOP
                 FETCH lc_listar_representantes_a_cargo INTO representante_h;
                 EXIT WHEN lc_listar_representantes_a_cargo%NOTFOUND;
-                salida := salida + 'Cedula: ' || representante_h.cedula || '. Valor Recaudado en el periodo: ' || representante_h.total_venta || '\n';
+                DBMS_OUTPUT.PUT_LINE('Cedula: ' || representante_h.cedula || '. Valor Recaudado en el periodo: ' || representante_h.total_venta || '\n');
             END LOOP;
         END LOOP;
         RETURN salida;
@@ -864,34 +928,31 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 RAISE_APPLICATION_ERROR(-20020, 'El cambio de representante del cliente en cuestión presentó un fallo...');       
     END PR_CAMBIAR_REPRESENTANTE;
 
+    /*------------------------------------------------------------------------------
+     * Procedimiento para actualizar los valores del RepresentantePeriodo al final del periodo (Ejecutado por la actualizacion de los montos periodicos)
+     Parametros de Entrada: Ninguno.
+     Parametros de Salida:  Ninguno.
+   */
     PROCEDURE PR_FINAL_PERIODO
     IS
+        --Declaración de variables locales
         id_periodo NUMBER(8);
         fecha_inicio DATE;
         fecha_fin DATE;
-        
         lc_listar_representantes SYS_REFCURSOR;
-
         TYPE representante_record IS RECORD(
             cedula NUMBER
         );
-
         representante representante_record;
-
     BEGIN
-
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
-        
         lc_listar_representantes := LISTAR_REPRESENTANTES;
-
         LOOP
-
             FETCH lc_listar_representantes INTO representante;
             EXIT WHEN lc_listar_representantes%NOTFOUND;
-
             INSERT INTO "RepresentantePeriodo" (FK_CEDULA_REPRESENTANTE, FK_ID_PERIODO, GRADO, PORCENTAJE)
             VALUES (representante.cedula, id_periodo, 'beginner', 2);
-
+            
             UPDATE "RepresentantePeriodo" SET valor_recaudado = 0 + (SELECT COALESCE((SELECT COALESCE(SUM(p.monto), 0)
             FROM "Pedido" p,
                 "Cliente" c,
@@ -911,18 +972,15 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
                 AND p.id_pedido = pg.fk_id_pedido
             GROUP BY rp.fk_cedula_representante, pp.id_periodo), 0) FROM DUAL)
-
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
         END LOOP;
-
         COMMIT;
-
         CALCULO_PROMEDIO_CALIFICACION;
+        COMMIT;
         CALCULAR_COMISION_PERIODICA;
-
+        COMMIT;
         UPDATE "Periodo" SET estado_periodo = 'I' WHERE estado_periodo = 'A';
-
     END PR_FINAL_PERIODO;
 
 END PK_NATAME;

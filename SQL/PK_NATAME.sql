@@ -20,11 +20,28 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS
                                id_region IN "Region".ID_REGION % TYPE) RETURN NUMBER;
 
     /*------------------------------------------------------------------------------
-     (2) Función para pagar en línea el carrito luego de la comunicación con la API del banco.
-     Parametros de Entrada: 
-     Retorna:               El id. del pago registrado.           
+     (2) Procedimiento para pagar en línea el carrito luego de la comunicación con la API del banco.
+     Parametros de Entrada: id_pedido       Identificación del pedido a liquidar
+                            franquicia          Franquicia de la tarjeta de credito utilziada
+                            num_tarjeta         Número de tarjeta empelada
+                            cvv                 Codigo de seguridad CVV de la tarjeta empleada
+                            fecha_vencimiento   Fecha de vencimiento de la tarjeta empleada
+                            id_transferencia    Número bancario de la transferencia realizada
+                            id_pse              Número bancario de a transacción en PSE realizada
+                            correo_pse          Correo registrado en la plataforma PSE con el cual se realizó el pago.                            
+     Parametros de Salida:  El id. del pago registrado.
+     Particularidad: Se emplea polimorfismo para representar el pago del carrito con PSE, transferencia y T. de C.           
    */ 
-
+    PROCEDURE PR_PAGAR_CARRITO(id_pedido            IN "Pedido".id_pedido%TYPE,
+                                franquicia          IN VARCHAR,
+                                num_tarjeta         IN NUMBER,
+                                cvv                 IN NUMBER,
+                                fecha_vencimiento   IN DATE);
+    PROCEDURE PR_PAGAR_CARRITO(id_pedido            IN "Pedido".id_pedido%TYPE,
+                                id_transferencia    IN NUMBER);                                
+    PROCEDURE PR_PAGAR_CARRITO(id_pedido   IN "Pedido".id_pedido%TYPE,
+                                id_pse     IN NUMBER,
+                                correo_pse IN VARCHAR);
 
     /*------------------------------------------------------------------------------
      (3) Funcion para Generar la factura de venta mediante un archivo PL/SQL y retornarla a la app para mostrarla.
@@ -32,7 +49,7 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS
                             id_region       Identificacion de la región para el llamado de la func. TOTALIZAR_CARRITO
      Retorna:               Cadena de texto de tipo VARCHAR que contiene la factura para ser ilustrada en la App.
    */ 
-    FUNCTION PR_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
+    FUNCTION FU_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
                                 id_region IN "Region".id_region%TYPE) RETURN VARCHAR;
 
     /*------------------------------------------------------------------------------
@@ -164,6 +181,11 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS
     PROCEDURE PR_CAMBIAR_REPRESENTANTE(id_cliente           IN "Cliente".cedula%TYPE,
                                         id_representante    IN "Representante".cedula%TYPE);
 
+    /*------------------------------------------------------------------------------
+     * Procedimiento para actualizar los valores del RepresentantePeriodo al final del periodo (Ejecutado por la actualizacion de los montos periodicos)
+     Parametros de Entrada: Ninguno.
+     Parametros de Salida:  Ninguno.
+   */
     PROCEDURE PR_FINAL_PERIODO;
 
 END PK_NATAME;
