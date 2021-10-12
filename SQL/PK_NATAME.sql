@@ -39,11 +39,11 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS --Función que totaliza y calcula el IVA 
                                     cantidad IN NUMBER
                                     );
 
-    PROCEDURE PR_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
-                                id_region IN "Region".id_region%TYPE);
+    FUNCTION PR_GENERAR_FACTURA(id_pedido IN "Pedido".id_pedido%TYPE,
+                                id_region IN "Region".id_region%TYPE) RETURN VARCHAR;
 
-    PROCEDURE PR_REPORTE_REPRESENTANTE;
-    PROCEDURE PR_REPORTE_REPRESENTANTE(id_region IN "Region".id_region%TYPE);
+    FUNCTION PR_REPORTE_REPRESENTANTE RETURN VARCHAR;
+    FUNCTION PR_REPORTE_REPRESENTANTE(id_region IN "Region".id_region%TYPE) RETURN VARCHAR;
 
 END PK_NATAME;
 /
