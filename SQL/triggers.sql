@@ -1,8 +1,8 @@
 set verify off
 set serveroutput on
 
-CREATE OR REPLACE TRIGGER TG_FINAL_PERIODO 
-BEFORE UPDATE OF estado_periodo ON "Periodo"
+/* CREATE OR REPLACE TRIGGER TG_FINAL_PERIODO 
+BEFORE UPDATE ON "Periodo"
 FOR EACH ROW
 DECLARE
 
@@ -37,7 +37,8 @@ BEGIN
             "Cliente" c,
             "RepresentanteCliente" rc,
             "Periodo" pp,
-            "RepresentantePeriodo" rp
+            "RepresentantePeriodo" rp,
+            "Pago" pg
         WHERE rp.fk_cedula_representante = representante.cedula
             AND rp.fk_cedula_representante = rc.fk_id_representante
             AND p.fk_cedula_cliente = c.cedula
@@ -47,13 +48,18 @@ BEGIN
             AND pp.estado_periodo = 'A'
             AND pp.id_periodo = rp.fk_id_periodo
             AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
+            AND p.id_pedido = pg.fk_id_pedido
         GROUP BY rp.fk_cedula_representante, pp.id_periodo
                         )
         WHERE fk_cedula_representante = representante.cedula
         AND fk_id_periodo = id_periodo;
     END LOOP;
+
+    PK_NATAME.CALCULO_PROMEDIO_CALIFICACION;
+    PK_NATAME.CALCULAR_COMISION_PERIODICA;
+
 END TG_FINAL_PERIODO;
-/
+/ */
 
 CREATE OR REPLACE TRIGGER TG_MONTO_PEDIDO
 AFTER INSERT OR UPDATE OR DELETE ON "PedidoProducto"
@@ -94,11 +100,11 @@ BEGIN
     WHERE cedula = (SELECT rc.fk_id_representante 
     FROM "Pedido" p, "RepresentanteCliente" rc, "Cliente" c
     WHERE p.id_pedido = :new.fk_id_pedido
-    AND c.cedula = p.fk_cedula_cliente
-    AND p.fk_cedula_cliente = rc.fk_id_cliente
+    AND p.fk_cedula_cliente = c.cedula
+    AND c.cedula = rc.fk_id_cliente
     AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
-    (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
-    GROUP BY rc.fk_id_representante);
+    (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))/* 
+    GROUP BY rc.fk_id_representante */);
 
 END TG_TOTAL_VENTA_REPRESENTANTE;
 /

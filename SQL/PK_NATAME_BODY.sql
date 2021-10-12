@@ -87,8 +87,7 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             FETCH lc_listar_representantes INTO representante;
             EXIT WHEN lc_listar_representantes%NOTFOUND;
             UPDATE "RepresentantePeriodo"
-                            SET prom_calificacion = (
-                                SELECT AVG(cl.nota)
+                            SET prom_calificacion = 0 + (SELECT COALESCE((SELECT COALESCE(AVG(cl.nota), 0)
             FROM "Pedido" p,
                 "Cliente" c,
                 "RepresentanteCliente" rc,
@@ -103,11 +102,21 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
                 AND pp.estado_periodo = 'A'
                 AND pp.id_periodo = rp.fk_id_periodo
+                AND pp.id_periodo = id_periodo
                 AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
                 AND cl.fk_id_pedido = p.id_pedido
-            GROUP BY rp.fk_cedula_representante, pp.id_periodo)
+            GROUP BY rp.fk_cedula_representante, pp.id_periodo), 0) FROM DUAL)
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
+
+            UPDATE "Representante" SET prom_calificacion = 0 + (SELECT COALESCE((SELECT COALESCE(AVG(cl.nota), 0)
+                FROM "Pedido" p, "RepresentanteCliente" rc, "Calificacion" cl, "Cliente" c
+                WHERE rc.fk_id_representante = representante.cedula
+                AND c.cedula = rc.fk_id_cliente
+                AND p.fk_cedula_cliente = c.cedula
+                AND cl.fk_id_pedido = p.id_pedido
+                GROUP BY rc.fk_id_representante), 0) FROM DUAL)
+                WHERE cedula = representante.cedula;
         END LOOP;
         EXCEPTION
             WHEN OTHERS THEN
@@ -140,8 +149,7 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
             FETCH lc_listar_representantes INTO representante;
             EXIT WHEN lc_listar_representantes%NOTFOUND;
             UPDATE "RepresentantePeriodo"
-                            SET prom_calificacion = (
-                                SELECT AVG(cl.nota)
+                            SET prom_calificacion = 0 + (SELECT COALESCE((SELECT COALESCE(AVG(cl.nota), 0)
             FROM "Pedido" p,
                 "Cliente" c,
                 "RepresentanteCliente" rc,
@@ -156,19 +164,20 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
                 (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
                 AND pp.estado_periodo = 'A'
                 AND pp.id_periodo = rp.fk_id_periodo
+                AND pp.id_periodo = id_periodo
                 AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
                 AND cl.fk_id_pedido = p.id_pedido
-            GROUP BY rp.fk_cedula_representante, pp.id_periodo)
+            GROUP BY rp.fk_cedula_representante, pp.id_periodo), 0) FROM DUAL)
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
 
-            UPDATE "Representante" SET prom_calificacion = (SELECT AVG(cl.nota)
+            UPDATE "Representante" SET prom_calificacion = 0 + (SELECT COALESCE((SELECT COALESCE(AVG(cl.nota), 0)
                 FROM "Pedido" p, "RepresentanteCliente" rc, "Calificacion" cl, "Cliente" c
                 WHERE rc.fk_id_representante = representante.cedula
                 AND c.cedula = rc.fk_id_cliente
                 AND p.fk_cedula_cliente = c.cedula
                 AND cl.fk_id_pedido = p.id_pedido
-                GROUP BY rc.fk_id_representante)
+                GROUP BY rc.fk_id_representante), 0) FROM DUAL)
                 WHERE cedula = representante.cedula;
         END LOOP;
         EXCEPTION
@@ -208,14 +217,17 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
         lc_listar_representantes := LISTAR_REPRESENTANTES;
         lc_listar_grados := LISTAR_GRADOS;
+
         LOOP
             FETCH lc_listar_representantes INTO representante;
             EXIT WHEN lc_listar_representantes%NOTFOUND;
+            
             SELECT valor_recaudado, prom_calificacion
             INTO ventas_rep, calificacion_rep
             FROM "RepresentantePeriodo"
             WHERE fk_cedula_representante = representante.cedula
             AND fk_id_periodo = id_periodo;
+
             LOOP
                 FETCH lc_listar_grados INTO grados;
                 EXIT WHEN lc_listar_grados%NOTFOUND;
@@ -314,12 +326,6 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
     IS
         id_periodo_max NUMBER(8);
     BEGIN
-
-        SELECT MAX(id_periodo)
-        INTO id_periodo_max
-        FROM "Periodo";
-
-        DBMS_OUTPUT.PUT_LINE(id_periodo_max);
 
         SELECT p.id_periodo, p.fecha_inicio, p.fecha_fin
         INTO id_periodo, fecha_inicio, fecha_fin
@@ -856,6 +862,68 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         EXCEPTION
             WHEN OTHERS THEN
                 RAISE_APPLICATION_ERROR(-20020, 'El cambio de representante del cliente en cuestión presentó un fallo...');       
-    END PR_CAMBIAR_REPRESENTANTE;  
+    END PR_CAMBIAR_REPRESENTANTE;
+
+    PROCEDURE PR_FINAL_PERIODO
+    IS
+        id_periodo NUMBER(8);
+        fecha_inicio DATE;
+        fecha_fin DATE;
+        
+        lc_listar_representantes SYS_REFCURSOR;
+
+        TYPE representante_record IS RECORD(
+            cedula NUMBER
+        );
+
+        representante representante_record;
+
+    BEGIN
+
+        PR_BUSCAR_PERIODO_ACTIVO(fecha_inicio, fecha_fin, id_periodo);
+        
+        lc_listar_representantes := LISTAR_REPRESENTANTES;
+
+        LOOP
+
+            FETCH lc_listar_representantes INTO representante;
+            EXIT WHEN lc_listar_representantes%NOTFOUND;
+
+            INSERT INTO "RepresentantePeriodo" (FK_CEDULA_REPRESENTANTE, FK_ID_PERIODO, GRADO, PORCENTAJE)
+            VALUES (representante.cedula, id_periodo, 'beginner', 2);
+
+            UPDATE "RepresentantePeriodo" SET valor_recaudado = 0 + (SELECT COALESCE((SELECT COALESCE(SUM(p.monto), 0)
+            FROM "Pedido" p,
+                "Cliente" c,
+                "RepresentanteCliente" rc,
+                "Periodo" pp,
+                "RepresentantePeriodo" rp,
+                "Pago" pg
+            WHERE rp.fk_cedula_representante = representante.cedula
+                AND rp.fk_cedula_representante = rc.fk_id_representante
+                AND p.fk_cedula_cliente = c.cedula
+                AND c.cedula = rc.fk_id_cliente
+                AND ((p.fecha_pedido BETWEEN rc.fecha_inicio AND rc.fecha_fin) OR 
+                (p.fecha_pedido >= rc.fecha_inicio AND rc.fecha_fin IS NULL))
+                AND pp.estado_periodo = 'A'
+                AND pp.id_periodo = rp.fk_id_periodo
+                AND pp.id_periodo = id_periodo
+                AND p.fecha_pedido BETWEEN pp.fecha_inicio AND pp.fecha_fin
+                AND p.id_pedido = pg.fk_id_pedido
+            GROUP BY rp.fk_cedula_representante, pp.id_periodo), 0) FROM DUAL)
+
+            WHERE fk_cedula_representante = representante.cedula
+            AND fk_id_periodo = id_periodo;
+        END LOOP;
+
+        COMMIT;
+
+        CALCULO_PROMEDIO_CALIFICACION;
+        CALCULAR_COMISION_PERIODICA;
+
+        UPDATE "Periodo" SET estado_periodo = 'I' WHERE estado_periodo = 'A';
+
+    END PR_FINAL_PERIODO;
+
 END PK_NATAME;
 /

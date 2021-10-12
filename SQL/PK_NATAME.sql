@@ -164,5 +164,7 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS
     PROCEDURE PR_CAMBIAR_REPRESENTANTE(id_cliente           IN "Cliente".cedula%TYPE,
                                         id_representante    IN "Representante".cedula%TYPE);
 
+    PROCEDURE PR_FINAL_PERIODO;
+
 END PK_NATAME;
 /
