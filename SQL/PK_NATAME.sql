@@ -45,5 +45,8 @@ CREATE OR REPLACE PACKAGE PK_NATAME AS --Función que totaliza y calcula el IVA 
     FUNCTION PR_REPORTE_REPRESENTANTE RETURN VARCHAR;
     FUNCTION PR_REPORTE_REPRESENTANTE(id_region IN "Region".id_region%TYPE) RETURN VARCHAR;
 
+    PROCEDURE PR_CAMBIAR_REPRESENTANTE(id_cliente IN "Cliente".cedula%TYPE,
+                                        id_representante IN "Representante".cedula%TYPE);
+
 END PK_NATAME;
 /

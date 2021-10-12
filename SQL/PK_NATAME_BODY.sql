@@ -800,5 +800,18 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
     
     END PR_REPORTE_REPRESENTANTE;
 
+    PROCEDURE PR_CAMBIAR_REPRESENTANTE(id_cliente IN "Cliente".cedula%TYPE,
+                                        id_representante IN "Representante".cedula%TYPE)
+    IS
+    BEGIN
+
+        UPDATE "RepresentanteCliente" SET fecha_fin = TO_CHAR(SYSDATE, 'DD-MM-YYYY')
+        WHERE fk_id_cliente = id_cliente AND fecha_fin IS NULL;
+
+        INSERT INTO "RepresentanteCliente" (FK_ID_REPRESENTANTE, FK_ID_CLIENTE, FECHA_INICIO, FECHA_FIN)
+        VALUES (id_representante, id_cliente, TO_CHAR((SYSDATE+1), 'DD-MM-YYYY'), NULL);
+    
+    END PR_CAMBIAR_REPRESENTANTE;
+
 END PK_NATAME;
 /
