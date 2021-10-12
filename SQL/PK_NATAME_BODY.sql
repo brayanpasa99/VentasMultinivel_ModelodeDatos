@@ -537,6 +537,8 @@ CREATE or REPLACE PACKAGE BODY PK_NATAME AS
         --Declaracion de variables locales
         cantidad_disp NUMBER(4);
         precio_inv NUMBER(6);
+
+        cantidad_aux NUMBER(4);
     BEGIN
 
         SELECT cantidad, precio
